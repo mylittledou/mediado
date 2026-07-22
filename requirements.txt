@@ -2,3 +2,4 @@ requests
 tqdm
 ffmpeg-python
 yt-dlp
+pycryptodomex

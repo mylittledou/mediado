@@ -4,3 +4,5 @@ requests
 ffmpeg-python
 tqdm
 yt-dlp
+pycryptodomex
+websockets
