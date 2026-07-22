@@ -50,7 +50,7 @@ class M3U8Downloader:
             'outtmpl': self.output_path,
             'format': 'bestvideo+bestaudio/best',
             'merge_output_format': 'mp4',
-            'concurrent_fragment_downloads': 16,
+            'concurrent_fragment_downloads': 6,
             'source_address': '0.0.0.0', # 强制IPv4
             'progress_hooks': [progress_hook],
             'quiet': True,

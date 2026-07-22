@@ -259,7 +259,7 @@ class DownloadTask:
                 'outtmpl': self.output_path,
                 'format': 'bestvideo+bestaudio/best',
                 'merge_output_format': 'mp4',
-                'concurrent_fragment_downloads': 16,
+                'concurrent_fragment_downloads': 6, # 从16降至6，大幅降低NAS的CPU负载和风扇噪音
                 'source_address': '0.0.0.0', # 强制IPv4，防止Docker环境IPv6寻址超时导致严重降速
                 'progress_hooks': [progress_hook],
                 'quiet': True,
