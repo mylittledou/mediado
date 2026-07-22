@@ -31,6 +31,14 @@ def check_ffmpeg():
         return False
 
 
+import logging
+
+# 屏蔽 GET /tasks 的日志输出
+log = logging.getLogger('werkzeug')
+class EndpointFilter(logging.Filter):
+    def filter(self, record):
+        return 'GET /tasks' not in record.getMessage()
+log.addFilter(EndpointFilter())
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'downloads'
@@ -146,6 +154,7 @@ class DownloadTask:
         # 临时文件信息
         self.temp_dir = None
         self.downloaded_files = []
+        self.video_duration = None  # 缓存视频时长，避免重复调用ffprobe
         
         # 确保保存路径存在
         try:
@@ -339,6 +348,9 @@ class DownloadTask:
     
     def get_video_duration(self):
         """获取视频时长"""
+        if getattr(self, 'video_duration', None) is not None:
+            return self.video_duration
+            
         try:
             import subprocess
             import re
@@ -355,9 +367,10 @@ class DownloadTask:
                 seconds = int(duration % 60)
                 
                 if hours > 0:
-                    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+                    self.video_duration = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
                 else:
-                    return f"{minutes:02d}:{seconds:02d}"
+                    self.video_duration = f"{minutes:02d}:{seconds:02d}"
+                return self.video_duration
         except Exception as e:
             print(f"获取视频时长失败: {e}")
         return None
