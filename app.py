@@ -66,6 +66,11 @@ def load_tasks():
     """从JSON文件加载任务"""
     global download_tasks
     if os.path.exists(TASKS_FILE):
+        # 如果文件为空（0字节），直接返回，不要尝试解析
+        if os.path.getsize(TASKS_FILE) == 0:
+            print("tasks.json 文件为空，初始化为空列表。")
+            return
+            
         try:
             with open(TASKS_FILE, 'r', encoding='utf-8') as f:
                 saved_tasks = json.load(f)
