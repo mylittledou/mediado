@@ -724,17 +724,7 @@
             <strong>警告：</strong>未检测到ffmpeg，下载功能将无法正常工作。请安装ffmpeg并重启服务。
         </div>
         {% endif %}
-        
-        {% if has_aria2 %}
-        <div class="info">
-            <strong>提示：</strong>已检测到aria2，可以使用aria2高速下载。
-        </div>
-        {% else %}
-        <div class="info">
-            <strong>提示：</strong>未检测到aria2，将使用内置下载器。
-        </div>
-        {% endif %}
-        
+
         <!-- 标签页 -->
         <div class="tabs">
             <button class="tab-btn active" data-tab="new">新增下载</button>
@@ -765,10 +755,7 @@
                     </div>
                 </div>
                 
-                <div class="checkbox-group">
-                    <input type="checkbox" id="use_aria2" name="use_aria2" {% if has_aria2 %}checked{% endif %}>
-                    <label for="use_aria2">使用aria2下载引擎（需要已安装aria2）</label>
-                </div>
+
                 
                 <div class="checkbox-group">
                     <input type="checkbox" id="test_download" name="test_download">
@@ -875,7 +862,7 @@
             const url = document.getElementById('url').value;
             const outputFile = document.getElementById('output_file').value;
             const savePath = document.getElementById('save_path').value;
-            const useAria2 = document.getElementById('use_aria2').checked;
+
             const testDownload = document.getElementById('test_download').checked;
             
             // 禁用按钮，防止重复提交
@@ -889,7 +876,7 @@
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: `url=${encodeURIComponent(url)}&output_file=${encodeURIComponent(outputFile)}&save_path=${encodeURIComponent(savePath)}&use_aria2=${useAria2}&test_download=${testDownload}`
+                body: `url=${encodeURIComponent(url)}&output_file=${encodeURIComponent(outputFile)}&save_path=${encodeURIComponent(savePath)}&test_download=${testDownload}`
             })
             .then(response => {
                 if (!response.ok) {

@@ -30,12 +30,7 @@ def check_ffmpeg():
     except:
         return False
 
-def check_aria2():
-    try:
-        subprocess.run(['aria2c', '--version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        return True
-    except:
-        return False
+
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'downloads'
@@ -103,7 +98,7 @@ def save_tasks():
 
 class DownloadTask:
     """下载任务类"""
-    def __init__(self, task_id, url, output_file, save_path=None, use_aria2=False, test_download=False):
+    def __init__(self, task_id, url, output_file, save_path=None, test_download=False):
         self.task_id = task_id
         self.url = url
         self.output_file = output_file if output_file.endswith('.mp4') else f"{output_file}.mp4"
@@ -129,7 +124,7 @@ class DownloadTask:
         # 确保路径使用正确的分隔符
         self.save_path = os.path.normpath(self.save_path)
         
-        self.use_aria2 = use_aria2
+
         self.test_download = test_download  # 测试下载模式
         self.status = 'pending'  # pending, downloading, completed, failed, paused
         self.progress = 0
@@ -187,40 +182,89 @@ class DownloadTask:
                 self.status = 'downloading'
                 
                 if d['status'] == 'downloading':
-                    downloaded = d.get('downloaded_bytes', 0)
-                    total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
-                    self.downloaded_size = downloaded
-                    
-                    if total > 0:
-                        self.total_size = total
-                        self.size_progress = (downloaded / total) * 100
-                        self.progress = self.size_progress
-                    else:
-                        # 对于 m3u8，通常按片段计算
-                        fragment_index = d.get('fragment_index', 0)
-                        fragment_count = d.get('fragment_count', 0)
-                        if fragment_count > 0:
-                            self.total_segments = fragment_count
-                            self.downloaded_segments = fragment_index
-                            self.progress = (fragment_index / fragment_count) * 100
+                    # 恢复到最早版本的经典逻辑，完全信任 yt-dlp 的自带估算值
+                    # 1. 进度百分比
+                    if '_percent_str' in d:
+                        import re
+                        percent_str = re.sub(r'\x1b\[[0-9;]*m', '', d['_percent_str']).replace('%', '').strip()
+                        try:
+                            self.progress = float(percent_str)
                             self.size_progress = self.progress
+                        except ValueError:
+                            pass
                             
+                    # 2. 速度
                     speed = d.get('speed')
                     if speed:
-                        self.speed = speed / 1024 # KB/s
-            
+                        self.speed = speed / 1024  # KB/s
+                    elif '_speed_str' in d:
+                        import re
+                        speed_str = re.sub(r'\x1b\[[0-9;]*m', '', d['_speed_str']).strip()
+                        if 'KiB/s' in speed_str:
+                            try:
+                                self.speed = float(speed_str.replace('KiB/s', '').strip())
+                            except ValueError:
+                                pass
+                        elif 'MiB/s' in speed_str:
+                            try:
+                                self.speed = float(speed_str.replace('MiB/s', '').strip()) * 1024
+                            except ValueError:
+                                pass
+
+                    # 3. 核心：完全信赖 yt-dlp 后台计算的真实数据，让前端与终端输出保持 100% 一致
+                    # 无论它怎么跳动，至少它是最准的！
+                    downloaded = d.get('downloaded_bytes', 0)
+                    total = d.get('total_bytes') or d.get('total_bytes_estimate', 0)
+                    
+                    if downloaded > 0:
+                        self.downloaded_size = downloaded
+                        
+                    if total > 0:
+                        self.total_size = total
+                        
+                    # 如果 yt-dlp 没给字典，则尝试解析字符串作备用 (比如控制台输出的 ~ 522.94MiB)
+                    if self.total_size == 0 and '_total_bytes_str' in d:
+                        import re
+                        m = re.search(r'([\d\.]+)(K|M|G)?i?B', d['_total_bytes_str'].replace('~', '').strip())
+                        if m:
+                            val, unit = float(m.group(1)), m.group(2)
+                            if unit == 'K': val *= 1024
+                            elif unit == 'M': val *= 1048576
+                            elif unit == 'G': val *= 1073741824
+                            self.total_size = val
+                            
+                    if self.downloaded_size == 0 and '_downloaded_bytes_str' in d:
+                        import re
+                        m = re.search(r'([\d\.]+)(K|M|G)?i?B', d['_downloaded_bytes_str'].replace('~', '').strip())
+                        if m:
+                            val, unit = float(m.group(1)), m.group(2)
+                            if unit == 'K': val *= 1024
+                            elif unit == 'M': val *= 1048576
+                            elif unit == 'G': val *= 1073741824
+                            self.downloaded_size = val
+
+                    # 4. 片段
+                    if 'fragment_count' in d:
+                        self.total_segments = d.get('fragment_count', 0)
+                    if 'fragment_index' in d:
+                        self.downloaded_segments = d.get('fragment_index', 0)
+                    
+                    if self.total_segments == 0 and d.get('info_dict') and d['info_dict'].get('fragment_count'):
+                        self.total_segments = d['info_dict']['fragment_count']
+                        
+                    if self.total_segments > 0 and self.downloaded_segments == 0 and self.progress > 0:
+                        self.downloaded_segments = int(self.total_segments * (self.progress / 100.0))
+                            
             ydl_opts = {
                 'outtmpl': self.output_path,
                 'format': 'bestvideo+bestaudio/best',
                 'merge_output_format': 'mp4',
+                'concurrent_fragment_downloads': 16,
                 'progress_hooks': [progress_hook],
                 'quiet': True,
                 'no_warnings': True,
             }
-            if self.use_aria2:
-                ydl_opts['external_downloader'] = 'aria2c'
-                ydl_opts['external_downloader_args'] = ['-x16', '-s16', '-k1M']
-            
+
             # 使用临时文件测试是否可写
             import os
             os.makedirs(os.path.dirname(self.output_path), exist_ok=True)
@@ -231,6 +275,12 @@ class DownloadTask:
             self.status = 'completed'
             self.progress = 100
             self.end_time = time.time()
+            
+            # 使用真实的本地文件大小覆盖之前的预估大小，因为 yt-dlp 下载多轨道（音视频分离）时，
+            # 最后一次汇报的大小可能仅仅是最后下载的音频轨的大小，导致最终大小偏小。
+            if os.path.exists(self.output_path):
+                self.total_size = os.path.getsize(self.output_path)
+            
             save_tasks()
             
         except Exception as e:
@@ -354,9 +404,8 @@ def index():
     """主页"""
     # 检查ffmpeg和aria2是否可用
     has_ffmpeg = check_ffmpeg()
-    has_aria2 = check_aria2()
     
-    return render_template('index.html', has_ffmpeg=has_ffmpeg, has_aria2=has_aria2)
+    return render_template('index.html', has_ffmpeg=has_ffmpeg)
 
 # 登录路由
 @app.route('/login', methods=['GET', 'POST'])
@@ -393,7 +442,7 @@ def start_download():
         url = request.form.get('url')
         output_file = request.form.get('output_file', 'output')
         save_path = request.form.get('save_path')
-        use_aria2 = request.form.get('use_aria2', 'false') == 'true'
+
         test_download = request.form.get('test_download', 'false') == 'true'
         
         if not url:
@@ -408,7 +457,7 @@ def start_download():
             return jsonify({'error': '请输入有效的HTTP/HTTPS URL'}), 400
         
         # 创建下载任务
-        task = DownloadTask(task_id, url, output_file, save_path, use_aria2, test_download)
+        task = DownloadTask(task_id, url, output_file, save_path, test_download)
         download_tasks[task_id] = task
         
         return jsonify({'task_id': task_id})
@@ -554,7 +603,31 @@ def delete_task(task_id):
         return jsonify({'error': '任务不存在'}), 404
     
     task = download_tasks[task_id]
-    task.delete()
+    
+    # 1. 执行对象特定的删除逻辑
+    if hasattr(task, 'delete'):
+        task.delete()
+    else:
+        # 如果是重启后从 tasks.json 加载的简易对象（没有 delete 方法）
+        if hasattr(task, 'output_path') and os.path.exists(task.output_path):
+            try:
+                os.remove(task.output_path)
+            except Exception as e:
+                print(f"删除物理文件失败: {e}")
+        if task_id in download_tasks:
+            del download_tasks[task_id]
+            
+    # 2. 统一清理缩略图
+    output_file = getattr(task, 'output_file', None)
+    if output_file:
+        thumbnails_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'thumbnails')
+        thumbnail_path = os.path.join(thumbnails_dir, f"{output_file}.jpg")
+        if os.path.exists(thumbnail_path):
+            try:
+                os.remove(thumbnail_path)
+            except:
+                pass
+
     # 保存任务到文件
     save_tasks()
     return jsonify({'status': 'success'})
@@ -734,4 +807,4 @@ def static_files(filename):
 
 if __name__ == '__main__':
     # 生产环境建议使用gunicorn或uwsgi
-    app.run(host='0.0.0.0', port=8000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=True)

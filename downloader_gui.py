@@ -20,12 +20,7 @@ def check_ffmpeg():
         return False
 
 # 检查aria2是否安装
-def check_aria2():
-    try:
-        result = os.system("aria2c --version >nul 2>&1")
-        return result == 0
-    except:
-        return False
+
 
 class M3U8DownloaderGUI:
     def __init__(self, root):
@@ -86,15 +81,6 @@ class M3U8DownloaderGUI:
         self.path_entry.pack(side=tk.LEFT, padx=5)
         self.path_entry.insert(0, os.getcwd())
         tk.Button(frame, text="浏览", command=self.browse_path).pack(side=tk.LEFT, padx=5)
-        
-        # aria2选项
-        frame = tk.Frame(self.root)
-        frame.pack(pady=5)
-        self.use_aria2_var = tk.BooleanVar()
-        self.use_aria2_var.set(False)
-        tk.Checkbutton(frame, text="使用aria2下载引擎（需要已安装aria2）", variable=self.use_aria2_var).pack(side=tk.LEFT, padx=5)
-        if not check_aria2():
-            tk.Label(frame, text="（未检测到aria2）", fg="red").pack(side=tk.LEFT, padx=5)
         
         # 控制按钮
         frame = tk.Frame(self.root)
@@ -257,10 +243,8 @@ class M3U8DownloaderGUI:
                 'progress_hooks': [progress_hook],
                 'quiet': True,
                 'no_warnings': True,
+                'concurrent_fragment_downloads': 16,
             }
-            if self.use_aria2_var.get():
-                ydl_opts['external_downloader'] = 'aria2c'
-                ydl_opts['external_downloader_args'] = ['-x16', '-s16', '-k1M']
             
             with yt_dlp.YoutubeDL(ydl_opts) as ydl:
                 ydl.download([url])
