@@ -21,7 +21,21 @@ from flask import Flask, render_template, request, jsonify, send_from_directory,
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 # 导入原有的下载器功能
-from downloader import check_ffmpeg, check_aria2
+import subprocess
+
+def check_ffmpeg():
+    try:
+        subprocess.run(['ffmpeg', '-version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return True
+    except:
+        return False
+
+def check_aria2():
+    try:
+        subprocess.run(['aria2c', '--version'], stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return True
+    except:
+        return False
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'downloads'
