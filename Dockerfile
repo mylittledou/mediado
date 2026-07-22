@@ -8,6 +8,9 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     aria2 \
     tzdata \
+    gcc \
+    python3-dev \
+    libc-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # 复制requirements文件

@@ -51,6 +51,7 @@ class M3U8Downloader:
             'format': 'bestvideo+bestaudio/best',
             'merge_output_format': 'mp4',
             'concurrent_fragment_downloads': 16,
+            'source_address': '0.0.0.0', # 强制IPv4
             'progress_hooks': [progress_hook],
             'quiet': True,
             'no_warnings': True,
