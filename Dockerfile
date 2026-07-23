@@ -1,4 +1,4 @@
-FROM python:3.9-slim
+FROM python:3.11-slim
 
 # 设置工作目录
 WORKDIR /app
@@ -8,9 +8,6 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ffmpeg \
     aria2 \
     tzdata \
-    gcc \
-    python3-dev \
-    libc-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # 复制requirements文件

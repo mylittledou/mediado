@@ -31,14 +31,6 @@ def check_ffmpeg():
         return False
 
 
-import logging
-
-# 屏蔽 GET /tasks 的日志输出
-log = logging.getLogger('werkzeug')
-class EndpointFilter(logging.Filter):
-    def filter(self, record):
-        return 'GET /tasks' not in record.getMessage()
-log.addFilter(EndpointFilter())
 
 app = Flask(__name__)
 app.config['UPLOAD_FOLDER'] = 'downloads'
@@ -154,7 +146,6 @@ class DownloadTask:
         # 临时文件信息
         self.temp_dir = None
         self.downloaded_files = []
-        self.video_duration = None  # 缓存视频时长，避免重复调用ffprobe
         
         # 确保保存路径存在
         try:
@@ -268,11 +259,16 @@ class DownloadTask:
                 'outtmpl': self.output_path,
                 'format': 'bestvideo+bestaudio/best',
                 'merge_output_format': 'mp4',
-                'concurrent_fragment_downloads': 6, # 从16降至6，大幅降低NAS的CPU负载和风扇噪音
-                'source_address': '0.0.0.0', # 强制IPv4，防止Docker环境IPv6寻址超时导致严重降速
+                'concurrent_fragment_downloads': 16,
                 'progress_hooks': [progress_hook],
                 'quiet': True,
                 'no_warnings': True,
+                'http_headers': {
+                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                    'Accept': '*/*',
+                    'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
+                    'Sec-Fetch-Mode': 'navigate',
+                }
             }
 
             # 使用临时文件测试是否可写
@@ -348,9 +344,6 @@ class DownloadTask:
     
     def get_video_duration(self):
         """获取视频时长"""
-        if getattr(self, 'video_duration', None) is not None:
-            return self.video_duration
-            
         try:
             import subprocess
             import re
@@ -367,10 +360,9 @@ class DownloadTask:
                 seconds = int(duration % 60)
                 
                 if hours > 0:
-                    self.video_duration = f"{hours:02d}:{minutes:02d}:{seconds:02d}"
+                    return f"{hours:02d}:{minutes:02d}:{seconds:02d}"
                 else:
-                    self.video_duration = f"{minutes:02d}:{seconds:02d}"
-                return self.video_duration
+                    return f"{minutes:02d}:{seconds:02d}"
         except Exception as e:
             print(f"获取视频时长失败: {e}")
         return None
@@ -785,8 +777,8 @@ def get_thumbnail(filename):
         
         if duration_result.returncode != 0:
             print(f"[ERROR] 获取视频时长失败: {duration_result.stderr}")
-            # 使用默认的第一帧 (注意: -ss 必须放在 -i 前面，否则会全文件解码导致 CPU 暴涨)
-            thumbnail_cmd = ['ffmpeg', '-ss', '00:00:01', '-i', video_path, '-vframes', '1', '-q:v', '2', thumbnail_path]
+            # 使用默认的第一帧
+            thumbnail_cmd = ['ffmpeg', '-i', video_path, '-ss', '00:00:01', '-vframes', '1', '-q:v', '2', thumbnail_path]
         else:
             duration = float(duration_result.stdout.strip())
             # 选择中间一帧
@@ -797,8 +789,8 @@ def get_thumbnail(filename):
             seconds = middle_time % 60
             time_str = f"{hours:02d}:{minutes:02d}:{seconds:06.3f}"
             
-            # 2. 生成缩略图 (注意: -ss 必须放在 -i 前面进行快速定位，否则会耗尽 CPU)
-            thumbnail_cmd = ['ffmpeg', '-ss', time_str, '-i', video_path, '-vframes', '1', '-q:v', '2', thumbnail_path]
+            # 2. 生成缩略图
+            thumbnail_cmd = ['ffmpeg', '-i', video_path, '-ss', time_str, '-vframes', '1', '-q:v', '2', thumbnail_path]
         
         result = subprocess.run(thumbnail_cmd, capture_output=True, text=True, shell=False)
         
