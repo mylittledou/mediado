@@ -785,8 +785,8 @@ def get_thumbnail(filename):
         
         if duration_result.returncode != 0:
             print(f"[ERROR] 获取视频时长失败: {duration_result.stderr}")
-            # 使用默认的第一帧
-            thumbnail_cmd = ['ffmpeg', '-i', video_path, '-ss', '00:00:01', '-vframes', '1', '-q:v', '2', thumbnail_path]
+            # 使用默认的第一帧 (注意: -ss 必须放在 -i 前面，否则会全文件解码导致 CPU 暴涨)
+            thumbnail_cmd = ['ffmpeg', '-ss', '00:00:01', '-i', video_path, '-vframes', '1', '-q:v', '2', thumbnail_path]
         else:
             duration = float(duration_result.stdout.strip())
             # 选择中间一帧
@@ -797,8 +797,8 @@ def get_thumbnail(filename):
             seconds = middle_time % 60
             time_str = f"{hours:02d}:{minutes:02d}:{seconds:06.3f}"
             
-            # 2. 生成缩略图
-            thumbnail_cmd = ['ffmpeg', '-i', video_path, '-ss', time_str, '-vframes', '1', '-q:v', '2', thumbnail_path]
+            # 2. 生成缩略图 (注意: -ss 必须放在 -i 前面进行快速定位，否则会耗尽 CPU)
+            thumbnail_cmd = ['ffmpeg', '-ss', time_str, '-i', video_path, '-vframes', '1', '-q:v', '2', thumbnail_path]
         
         result = subprocess.run(thumbnail_cmd, capture_output=True, text=True, shell=False)
         
