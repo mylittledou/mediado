@@ -896,11 +896,11 @@
                 // 跳转到正在下载标签页
                 document.querySelector('[data-tab="downloading"]').click();
                 
+                // 立即触发一次智能刷新，进入快速轮询模式
+                startAutoRefresh();
+                
                 downloadBtn.disabled = false;
                 downloadBtn.textContent = '开始下载';
-                
-                // 唤醒轮询（如果轮询已停止，重新启动它）
-                startAutoRefresh();
             })
             .catch(error => {
                 console.error('Error:', error);
@@ -1158,46 +1158,50 @@
             restoreExpandedTasks();
         }
         
+        let autoRefreshTimer = null;
+        let isRefreshing = false;
+
+        // 智能刷新任务
+        function doAutoRefresh() {
+            if (isRefreshing) return;
+            isRefreshing = true;
+
+            const modal = document.getElementById('modalVideoPlayer');
+            const isModalVisible = modal && modal.style.display !== 'none';
+            
+            fetch('/tasks')
+                .then(response => response.json())
+                .then(tasks => {
+                    let downloadingTasks = tasks.filter(task => task.status === 'downloading' || task.status === 'pending' || task.status === 'paused');
+                    let completedTasks = tasks.filter(task => task.status === 'completed' || task.status === 'failed');
+                    
+                    downloadingTasks.sort((a, b) => (b.start_time || 0) - (a.start_time || 0));
+                    completedTasks.sort((a, b) => (b.start_time || 0) - (a.start_time || 0));
+                    
+                    updateTaskList('downloadingTasks', downloadingTasks);
+                    
+                    if (!isModalVisible) {
+                        updateTaskList('completedTasks', completedTasks);
+                    }
+                    
+                    isRefreshing = false;
+                    
+                    // 动态调整刷新频率：有活跃任务时 1 秒，无任务时 5 秒
+                    const hasActiveTasks = downloadingTasks.some(t => t.status === 'downloading' || t.status === 'pending');
+                    const nextInterval = hasActiveTasks ? 1000 : 5000;
+                    autoRefreshTimer = setTimeout(doAutoRefresh, nextInterval);
+                })
+                .catch(error => {
+                    console.error('获取任务列表失败:', error);
+                    isRefreshing = false;
+                    autoRefreshTimer = setTimeout(doAutoRefresh, 5000);
+                });
+        }
+
         // 开始自动刷新
         function startAutoRefresh() {
-            setInterval(() => {
-                // 检查是否有视频模态窗口正在显示
-                const modal = document.getElementById('modalVideoPlayer');
-                const isModalVisible = modal && modal.style.display !== 'none';
-                
-                // 如果视频模态窗口正在显示，只刷新正在下载的任务列表
-                // 否则刷新所有任务列表
-                fetch('/tasks')
-                    .then(response => response.json())
-                    .then(tasks => {
-                        // 分离正在下载和已完成的任务
-                        let downloadingTasks = tasks.filter(task => task.status === 'downloading' || task.status === 'pending' || task.status === 'paused');
-                        let completedTasks = tasks.filter(task => task.status === 'completed' || task.status === 'failed');
-                        
-                        // 按照新建时间（start_time）降序排序，最新的任务显示在上方
-                        downloadingTasks.sort((a, b) => {
-                            // 使用start_time进行排序，默认值为0确保未设置start_time的任务也能正确排序
-                            const timeA = a.start_time || 0;
-                            const timeB = b.start_time || 0;
-                            return timeB - timeA;
-                        });
-                        
-                        completedTasks.sort((a, b) => {
-                            // 使用start_time进行排序，默认值为0确保未设置start_time的任务也能正确排序
-                            const timeA = a.start_time || 0;
-                            const timeB = b.start_time || 0;
-                            return timeB - timeA;
-                        });
-                        
-                        // 更新正在下载任务列表（始终更新）
-                        updateTaskList('downloadingTasks', downloadingTasks);
-                        
-                        // 只有当视频模态窗口不可见时，才更新已完成任务列表
-                        if (!isModalVisible) {
-                            updateTaskList('completedTasks', completedTasks);
-                        }
-                    });
-            }, 1000); // 每1秒刷新一次
+            if (autoRefreshTimer) clearTimeout(autoRefreshTimer);
+            doAutoRefresh();
         }
         
         // 暂停任务
