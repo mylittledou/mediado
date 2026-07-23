@@ -292,6 +292,9 @@ class DownloadTask:
                 print(f"下载失败: {e}")
                 import traceback
                 traceback.print_exc()
+            
+            # 无论成功还是失败，都保存任务状态
+            save_tasks()
 
     def pause(self):
         """暂停下载"""
