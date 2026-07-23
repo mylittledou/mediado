@@ -898,6 +898,9 @@
                 
                 downloadBtn.disabled = false;
                 downloadBtn.textContent = '开始下载';
+                
+                // 唤醒轮询（如果轮询已停止，重新启动它）
+                startAutoRefresh();
             })
             .catch(error => {
                 console.error('Error:', error);
