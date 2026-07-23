@@ -255,6 +255,9 @@ class DownloadTask:
                     if self.total_segments > 0 and self.downloaded_segments == 0 and self.progress > 0:
                         self.downloaded_segments = int(self.total_segments * (self.progress / 100.0))
                             
+            # 动态导入 ImpersonateTarget 以避免顶层导入可能带来的 yt_dlp 版本兼容性问题
+            from yt_dlp.networking.impersonate import ImpersonateTarget
+            
             ydl_opts = {
                 'outtmpl': self.output_path,
                 'format': 'bestvideo+bestaudio/best',
@@ -264,7 +267,7 @@ class DownloadTask:
                 'quiet': True,
                 'no_warnings': True,
                 'extractor_args': {'generic': {'impersonate': ['']}},
-                'impersonate': 'chrome',
+                'impersonate': ImpersonateTarget(client='chrome'),
             }
 
             # 使用临时文件测试是否可写
