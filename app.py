@@ -264,12 +264,7 @@ class DownloadTask:
                 'quiet': True,
                 'no_warnings': True,
                 'extractor_args': {'generic': {'impersonate': ['']}},
-                'http_headers': {
-                    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                    'Accept': '*/*',
-                    'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
-                    'Sec-Fetch-Mode': 'navigate',
-                }
+                'impersonate': 'chrome',
             }
 
             # 使用临时文件测试是否可写
