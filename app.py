@@ -98,7 +98,7 @@ def save_tasks():
 
 class DownloadTask:
     """下载任务类"""
-    def __init__(self, task_id, url, output_file, save_path=None, test_download=False):
+    def __init__(self, task_id, url, output_file, save_path=None, test_download=False, proxy='', custom_headers=''):
         self.task_id = task_id
         self.url = url
         self.output_file = output_file if output_file.endswith('.mp4') else f"{output_file}.mp4"
@@ -126,6 +126,8 @@ class DownloadTask:
         
 
         self.test_download = test_download  # 测试下载模式
+        self.proxy = proxy
+        self.custom_headers = custom_headers
         self.status = 'pending'  # pending, downloading, completed, failed, paused
         self.progress = 0
         self.speed = 0
@@ -265,6 +267,19 @@ class DownloadTask:
                 'no_warnings': True,
                 'extractor_args': {'generic': {'impersonate': ['safari']}},
             }
+            
+            if self.proxy:
+                ydl_opts['proxy'] = self.proxy
+                
+            if self.custom_headers:
+                headers_dict = {}
+                for line in self.custom_headers.strip().split('\n'):
+                    if ':' in line:
+                        k, v = line.split(':', 1)
+                        headers_dict[k.strip()] = v.strip()
+                if headers_dict:
+                    ydl_opts['http_headers'] = headers_dict
+
 
             # 使用临时文件测试是否可写
             import os
@@ -448,6 +463,8 @@ def start_download():
         save_path = request.form.get('save_path')
 
         test_download = request.form.get('test_download', 'false') == 'true'
+        proxy = request.form.get('proxy', '')
+        custom_headers = request.form.get('custom_headers', '')
         
         if not url:
             return jsonify({'error': '请输入m3u8地址'}), 400
@@ -461,7 +478,7 @@ def start_download():
             return jsonify({'error': '请输入有效的HTTP/HTTPS URL'}), 400
         
         # 创建下载任务
-        task = DownloadTask(task_id, url, output_file, save_path, test_download)
+        task = DownloadTask(task_id, url, output_file, save_path, test_download, proxy, custom_headers)
         download_tasks[task_id] = task
         
         return jsonify({'task_id': task_id})

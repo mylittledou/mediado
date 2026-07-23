@@ -762,6 +762,21 @@
                     <label for="test_download">测试下载（仅下载100个片段）</label>
                 </div>
                 
+                <!-- 高级设置区 -->
+                <div class="advanced-settings-toggle" onclick="toggleAdvancedSettings()" style="cursor: pointer; color: #666; margin-bottom: 15px; user-select: none;">
+                    <span id="advanced-settings-arrow">▶</span> 高级设置 (代理/自定义请求头)
+                </div>
+                <div id="advanced-settings" style="display: none; padding-left: 10px; border-left: 2px solid #ddd; margin-bottom: 15px;">
+                    <div class="input-group">
+                        <label for="proxy" style="font-size: 14px; color: #555;">HTTP 代理 (解决区域封锁，例如: http://192.168.1.x:7890)：</label>
+                        <input type="text" id="proxy" name="proxy" placeholder="留空则不使用代理">
+                    </div>
+                    <div class="input-group">
+                        <label for="custom_headers" style="font-size: 14px; color: #555;">自定义请求头 (解决防盗链/需登录的视频)：</label>
+                        <textarea id="custom_headers" name="custom_headers" placeholder="Referer: https://example.com/&#10;Cookie: session=123" rows="3" style="width: 100%; padding: 8px; border: 1px solid #ddd; border-radius: 4px; resize: vertical;"></textarea>
+                    </div>
+                </div>
+                
                 <button type="submit" id="downloadBtn">开始下载</button>
             </form>
         </div>
@@ -780,6 +795,18 @@
     </div>
     
     <script>
+        // 切换高级设置显示状态
+        function toggleAdvancedSettings() {
+            const el = document.getElementById('advanced-settings');
+            const arrow = document.getElementById('advanced-settings-arrow');
+            if (el.style.display === 'none') {
+                el.style.display = 'block';
+                arrow.textContent = '▼';
+            } else {
+                el.style.display = 'none';
+                arrow.textContent = '▶';
+            }
+        }
         // 全局变量
         let currentTaskId = null;
         let statusInterval = null;
@@ -864,6 +891,8 @@
             const savePath = document.getElementById('save_path').value;
 
             const testDownload = document.getElementById('test_download').checked;
+            const proxy = document.getElementById('proxy').value;
+            const customHeaders = document.getElementById('custom_headers').value;
             
             // 禁用按钮，防止重复提交
             const downloadBtn = document.getElementById('downloadBtn');
@@ -876,7 +905,7 @@
                 headers: {
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: `url=${encodeURIComponent(url)}&output_file=${encodeURIComponent(outputFile)}&save_path=${encodeURIComponent(savePath)}&test_download=${testDownload}`
+                body: `url=${encodeURIComponent(url)}&output_file=${encodeURIComponent(outputFile)}&save_path=${encodeURIComponent(savePath)}&test_download=${testDownload}&proxy=${encodeURIComponent(proxy)}&custom_headers=${encodeURIComponent(customHeaders)}`
             })
             .then(response => {
                 if (!response.ok) {
