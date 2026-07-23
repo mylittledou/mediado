@@ -263,7 +263,7 @@ class DownloadTask:
                 'progress_hooks': [progress_hook],
                 'quiet': True,
                 'no_warnings': True,
-                'extractor_args': {'generic': {'impersonate': ['']}},
+                'extractor_args': {'generic': {'impersonate': ['safari']}},
             }
 
             # 使用临时文件测试是否可写
